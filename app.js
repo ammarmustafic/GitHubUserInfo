@@ -1,75 +1,90 @@
-const BASE_API = "https://api.github.com/users/";
-const form = document.querySelector("form");
-const main = document.querySelector(".main");
-const search = document.querySelector("#search");
-const btn = document.querySelector(".btn");
+const APIURL = "https://api.github.com/users/";
 
-// Hide the main div on page load
-main.style.display = "none";
+const main = document.getElementById("main");
+const form = document.getElementById("form");
+const search = document.getElementById("search");
 
-async function getData(username) {
+async function getUser(username) {
   try {
-    const data = await fetch(BASE_API + username);
-    const response = await data.json();
-    return response;
-  } catch (error) {}
-}
-
-function showCard(data) {
-  const imageElement = document.createElement("img");
-  imageElement.src = data.avatar_url;
-  main.appendChild(imageElement);
-
-  const nameElement = document.createElement("h1");
-  nameElement.innerText = `${data.login}`;
-  nameElement.classList.add("username");
-  main.appendChild(nameElement);
-
-  const followersElement = document.createElement("p");
-  followersElement.innerText = `Followers: ${data.followers}`;
-  main.appendChild(followersElement);
-
-  const followingElement = document.createElement("p");
-  followingElement.innerText = `Following: ${data.following}`;
-  main.appendChild(followingElement);
-
-  const reposElement = document.createElement("p");
-  reposElement.innerText = `Number of Repositories: ${data.public_repos}`;
-  main.appendChild(reposElement);
-
-  console.log(data);
+    const response = await fetch(APIURL + username);
+    const data = await response.json();
+    console.log(data);
+    createUserCard(data);
+    getRepos(username);
+  } catch (err) {
+    if (err.status == 404) {
+      createErrorCard("No profile with this username");
+    }
+  }
 }
 
 async function getRepos(username) {
-  const data = await fetch(BASE_API + username + "/repos");
-  const response = await data.json();
-  return response;
+  try {
+    const response = await fetch(APIURL + username + "/repos?sort=created");
+    const data = await response.json();
+
+    addReposToCard(data);
+  } catch (err) {
+    createErrorCard("Problem fetching repos");
+  }
 }
 
-function showRepos(repos) {
-  const reposHeadingElement = document.createElement("h2");
-  reposHeadingElement.innerText = "Repositories:";
-  main.appendChild(reposHeadingElement);
+function createUserCard(user) {
+  const userID = user.name || user.login;
+  const userBio = user.bio ? `<p>${user.bio}</p>` : "";
+  const cardHTML = `
+    <div class="card">
+    <div>
+      <img src="${user.avatar_url}" alt="${user.name}" class="avatar">
+    </div>
+    <div class="user-info">
+      <h2>${userID}</h2>
+      ${userBio}
+      <ul>
+        <li>${user.followers} <strong>Followers</strong></li>
+        <li>${user.following} <strong>Following</strong></li>
+        <li>${user.public_repos} <strong>Repos</strong></li>
+      </ul>
 
-  const reposListElement = document.createElement("ul");
-  main.appendChild(reposListElement);
+      <div id="repos"></div>
+    </div>
+  </div>
+    `;
+  main.innerHTML = cardHTML;
+}
 
+function createErrorCard(msg) {
+  const cardHTML = `
+        <div class="card">
+            <h1>${msg}</h1>
+        </div>
+    `;
+
+  main.innerHTML = cardHTML;
+}
+
+function addReposToCard(repos) {
+  const reposEl = document.getElementById("repos");
+  console.log("Repos" + repos);
   repos.forEach((repo) => {
-    const repoItemElement = document.createElement("li");
-    repoItemElement.innerText = repo.name;
-    reposListElement.appendChild(repoItemElement);
+    const repoEl = document.createElement("a");
+    repoEl.classList.add("repo");
+    repoEl.href = repo.html_url;
+    repoEl.target = "_blank";
+    repoEl.innerText = repo.name;
+
+    reposEl.appendChild(repoEl);
   });
 }
 
-btn.addEventListener("click", () => {
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+
   const user = search.value;
-  getData(user).then((data) => {
-    showCard(data);
-  });
-  getRepos(user).then((repos) => {
-    showRepos(repos);
-  });
-  search.style.display = "none";
-  btn.style.display = "none";
-  main.style.display = "block";
+
+  if (user) {
+    getUser(user);
+
+    search.value = "";
+  }
 });
